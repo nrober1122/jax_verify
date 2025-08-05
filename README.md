@@ -3,7 +3,7 @@
 [![tests status](https://travis-ci.com/deepmind/jax_verify.svg?branch=master)](https://travis-ci.com/deepmind/jax_verify)
 [![docs: latest](https://img.shields.io/badge/docs-stable-blue.svg)](https://jax-verify.readthedocs.io)
 
-Jax_verify is a library containing JAX implementations of many widely-used neural network verification techniques.
+Jax_verify is a library containing JAX implementations of many widely-used neural network verification techniques. This repo is an active fork of the [archived repo](https://github.com/google-deepmind/jax_verify) hosted by google-deepmind.
 
 ## Overview
 
