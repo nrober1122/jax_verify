@@ -439,7 +439,7 @@ class Concretizer(abc.ABC):
   def concrete_bound(
       self,
       graph: graph_traversal.PropagationGraph,
-      env: Mapping[jax.core.Var, bound_propagation.LayerInput],
+      env: Mapping[jax._src.core.Var, bound_propagation.LayerInput],
       nonconvex_bound: NonConvexBound) -> bound_propagation.Bound:
     """Returns a concretized bound."""
 
@@ -454,7 +454,7 @@ class BaseBoundConcretizer(Concretizer):
   def concrete_bound(
       self,
       graph: graph_traversal.PropagationGraph,
-      env: Mapping[jax.core.Var, bound_propagation.LayerInput],
+      env: Mapping[jax._src.core.Var, bound_propagation.LayerInput],
       nonconvex_bound: NonConvexBound) -> bound_propagation.Bound:
     return env[graph.jaxpr_node(nonconvex_bound.index)]
 
@@ -505,7 +505,7 @@ def _nonconvex_linear_op(
   placeholder_invals = []
   for inp in in_vals:
     if isinstance(inp, NonConvexBound):
-      placeholder_invals.append(jax.core.ShapedArray(inp.shape, jnp.float32))
+      placeholder_invals.append(jax._src.core.ShapedArray(inp.shape, jnp.float32))
     else:
       placeholder_invals.append(inp)
   output_shape = jax.eval_shape(kwarged_lin_fun, placeholder_invals).shape
@@ -693,7 +693,7 @@ class _NonConvexTransform(
       bound_cls: Type[NnCvx],
       concretizer: Concretizer,
       graph: graph_traversal.PropagationGraph,
-      env: Mapping[jax.core.Var, bound_propagation.LayerInput],
+      env: Mapping[jax._src.core.Var, bound_propagation.LayerInput],
   ):
     self._bound_cls = bound_cls
     self._concretizer = concretizer
@@ -735,7 +735,7 @@ class _ConstrainedNonConvexTransform(
       imposed_boundprop: bound_propagation.BoundTransform,
       concretizer: Concretizer,
       graph: graph_traversal.PropagationGraph,
-      env: Mapping[jax.core.Var, bound_propagation.LayerInput],
+      env: Mapping[jax._src.core.Var, bound_propagation.LayerInput],
   ):
     super().__init__(bound_cls, concretizer, graph, env)
     self._imposed_boundprop = imposed_boundprop
@@ -787,7 +787,7 @@ class NonConvexAlgorithm(
       bounds: Nest[graph_traversal.GraphInput],
   ) -> Tuple[
       Nest[bound_propagation.Bound],
-      Mapping[jax.core.Var, bound_propagation.LayerInput],
+      Mapping[jax._src.core.Var, bound_propagation.LayerInput],
   ]:
     if self._base_boundprop is not None:
       # Propagate the 'base' bounds in advance, for subsequent use by

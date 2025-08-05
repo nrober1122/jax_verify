@@ -151,7 +151,7 @@ class PropagationAlgorithm(Generic[Repr], metaclass=abc.ABCMeta):
       self,
       graph: graph_traversal.PropagationGraph,
       bounds: Nest[graph_traversal.GraphInput],
-  ) -> Tuple[Nest[Repr], Mapping[jax.core.Var, Union[Repr, Tensor]]]:
+  ) -> Tuple[Nest[Repr], Mapping[jax._src.core.Var, Union[Repr, Tensor]]]:
     """Propagate the given input bounds on the given graph."""
 
 
@@ -165,7 +165,7 @@ class ForwardPropagationAlgorithm(PropagationAlgorithm[Repr]):
       self,
       graph: graph_traversal.PropagationGraph,
       bounds: Nest[graph_traversal.GraphInput],
-  ) -> Tuple[Nest[Repr], Mapping[jax.core.Var, Union[Repr, Tensor]]]:
+  ) -> Tuple[Nest[Repr], Mapping[jax._src.core.Var, Union[Repr, Tensor]]]:
     """Propagate forward the given input bounds on the given graph."""
     return graph.forward_propagation(self._graph_transform, bounds)
 
@@ -199,7 +199,7 @@ def bound_propagation(
     graph_simplifier=synthetic_primitives.default_simplifier,
 ) -> Tuple[
     Nest[Union[Repr, Tensor]],
-    Mapping[jax.core.Var, Union[Repr, Tensor, Bound]]]:
+    Mapping[jax._src.core.Var, Union[Repr, Tensor, Bound]]]:
   """Performs Bound Propagation on the model implemented by `function`.
 
   Args:

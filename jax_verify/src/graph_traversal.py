@@ -72,7 +72,7 @@ class SubgraphHandler(typing_extensions.Protocol, Generic[Repr]):
   def __call__(
       self,
       transform: Any,
-      subgraph: jax.core.Jaxpr,
+      subgraph: jax._src.core.Jaxpr,
       *args: LayerInput[Repr],
   ) -> Sequence[Any]:
     pass
@@ -397,7 +397,7 @@ class UpdatedGraphTransform(GraphTransform[FwdRepr]):
     return self._base_transform.should_handle_as_subgraph(primitive)
 
 
-JaxVar = Union[jax.core.Var, jax.core.Literal]
+JaxVar = Union[jax._src.core.Var, jax._src.core.Literal]
 
 
 class IndexCounter:
@@ -426,11 +426,11 @@ class IndexCounter:
 
 
 def read_env(
-    env: Mapping[jax.core.Var, LayerInput[Repr]],
+    env: Mapping[jax._src.core.Var, LayerInput[Repr]],
     var: JaxVar,
 ) -> LayerInput[Repr]:
   """Read the value from the environment."""
-  if isinstance(var, jax.core.Literal):
+  if isinstance(var, jax._src.core.Literal):
     # Literals are values baked into the Jaxpr, e.g. ReLU's '0' arg to 'max'.
     return var.val
   else:
@@ -445,22 +445,22 @@ class PropagationGraph:
   """Holds a computational graph and the environment holding the variables.
   """
 
-  def __init__(self, graph: jax.core.Jaxpr, literals: Sequence[Tensor]):
+  def __init__(self, graph: jax._src.core.Jaxpr, literals: Sequence[Tensor]):
     self._graph = graph
     self._literals = literals
-    self._index_to_node: MutableMapping[Index, jax.core.Var] = {}
+    self._index_to_node: MutableMapping[Index, jax._src.core.Var] = {}
     self._last_index = None
 
   @property
-  def inputs(self) -> Sequence[jax.core.Var]:
+  def inputs(self) -> Sequence[jax._src.core.Var]:
     return self._graph.invars
 
   @property
-  def outputs(self) -> Sequence[jax.core.Var]:
+  def outputs(self) -> Sequence[jax._src.core.Var]:
     return [outvar for outvar in self._graph.outvars
-            if isinstance(outvar, jax.core.Var)]
+            if isinstance(outvar, jax._src.core.Var)]
 
-  def jaxpr_node(self, index: Index) -> jax.core.Var:
+  def jaxpr_node(self, index: Index) -> jax._src.core.Var:
     return self._index_to_node[index]
 
   @property
@@ -471,7 +471,7 @@ class PropagationGraph:
       self,
       transform: GraphTransform[FwdRepr],
       bounds: Nest[GraphInput],
-  ) -> Tuple[Nest[FwdRepr], Mapping[jax.core.Var, LayerInput[FwdRepr]]]:
+  ) -> Tuple[Nest[FwdRepr], Mapping[jax._src.core.Var, LayerInput[FwdRepr]]]:
     """Performs forward propagation on the parsed computation graph.
 
     This is accomplished by traversing the JaxPR representation of the
@@ -517,13 +517,13 @@ class PropagationGraph:
 
   def _forward_prop_eqn(
       self, transform: GraphTransform[FwdRepr],
-      env: MutableMapping[jax.core.Var, LayerInput[FwdRepr]],
+      env: MutableMapping[jax._src.core.Var, LayerInput[FwdRepr]],
       index: IndexCounter,
-      eqn: jax.core.JaxprEqn):
+      eqn: jax._src.core.JaxprEqn):
     """Recursive step of `forward_propagation`."""
     def subgraph_handler(
         sub_transform: GraphTransform[FwdRepr],
-        sub_graph: jax.core.Jaxpr,
+        sub_graph: jax._src.core.Jaxpr,
         *invals: LayerInput[FwdRepr],
     ) -> Sequence[LayerInput[FwdRepr]]:
       assert len(invals) == len(sub_graph.invars) == len(eqn.invars)
@@ -543,7 +543,7 @@ class PropagationGraph:
       # Add the sub-graph's inputs to the environment.
       sub_env.update({
           sub_invar: inval for sub_invar, inval in zip(sub_graph.invars, invals)
-          if isinstance(sub_invar, jax.core.Var)})
+          if isinstance(sub_invar, jax._src.core.Var)})
       # Recursively propagate through the sub-graph.
       index.begin_child()
       try:
@@ -587,12 +587,12 @@ class PropagationGraph:
   def _propagate_backward(
       self,
       transform: BackwardGraphTransform[BackRepr],
-      forward_env: Mapping[jax.core.Var, LayerInput[TransformedNode]],
-      backward_env: MutableMapping[jax.core.Var, List[BackRepr]],
+      forward_env: Mapping[jax._src.core.Var, LayerInput[TransformedNode]],
+      backward_env: MutableMapping[jax._src.core.Var, List[BackRepr]],
       target_indices: Sequence[Index],
   ) -> Tuple[
       Sequence[Optional[BackRepr]],
-      Mapping[jax.core.Var, Sequence[BackRepr]]]:
+      Mapping[jax._src.core.Var, Sequence[BackRepr]]]:
     """Performs backward propagation on the parsed computational graph.
 
     Args:
@@ -627,12 +627,12 @@ class PropagationGraph:
   def backward_propagation(
       self,
       transform: BackwardGraphTransform[BackRepr],
-      forward_env: Mapping[jax.core.Var, LayerInput[TransformedNode]],
-      backward_bounds: Mapping[jax.core.Var, BackRepr],
+      forward_env: Mapping[jax._src.core.Var, LayerInput[TransformedNode]],
+      backward_bounds: Mapping[jax._src.core.Var, BackRepr],
       target_indices: Sequence[Index],
   ) -> Tuple[
       Sequence[Optional[BackRepr]],
-      Mapping[jax.core.Var, Sequence[BackRepr]]]:
+      Mapping[jax._src.core.Var, Sequence[BackRepr]]]:
     """Performs backward prop from an intermediate node up to target nodes.
 
     Args:
@@ -657,9 +657,9 @@ class PropagationGraph:
   def _backward_prop_eqn(
       self,
       transform: BackwardGraphTransform[BackRepr],
-      forward_env: Mapping[jax.core.Var, LayerInput[TransformedNode]],
-      backward_env: MutableMapping[jax.core.Var, List[BackRepr]],
-      index: IndexCounter, eqn: jax.core.JaxprEqn):
+      forward_env: Mapping[jax._src.core.Var, LayerInput[TransformedNode]],
+      backward_env: MutableMapping[jax._src.core.Var, List[BackRepr]],
+      index: IndexCounter, eqn: jax._src.core.JaxprEqn):
     """Recursive step of `backward_propagation`."""
 
     def subgraph_handler(
@@ -754,5 +754,5 @@ class PropagationGraph:
                                 'supported.')
     for in_var, in_val in zip(eqn.invars, eqn_invals):
       # If it's a literal, there are no updates to perform.
-      if not isinstance(in_var, jax.core.Literal):
+      if not isinstance(in_var, jax._src.core.Literal):
         backward_env[in_var].extend(in_val)

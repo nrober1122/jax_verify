@@ -85,7 +85,7 @@ class OptimizingConcretizer(nonconvex.Concretizer):
   def concrete_bound(
       self,
       graph: graph_traversal.PropagationGraph,
-      env: Mapping[jax.core.Var, Union[bound_propagation.Bound, Tensor]],
+      env: Mapping[jax._src.core.Var, Union[bound_propagation.Bound, Tensor]],
       nonconvex_bound: nonconvex.NonConvexBound) -> bound_propagation.Bound:
     return self.get_bounds(nonconvex_bound)
 

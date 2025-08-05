@@ -182,8 +182,8 @@ class LinearBoundBackwardConcretizingTransform(
       self,
       graph: graph_traversal.PropagationGraph,
       inputs: Nest[graph_traversal.GraphInput],
-      env: Mapping[jax.core.Var, bound_propagation.LayerInput],
-      node_ref: jax.core.Var,
+      env: Mapping[jax._src.core.Var, bound_propagation.LayerInput],
+      node_ref: jax._src.core.Var,
       obj: Tensor,
   ) -> Tensor:
     initial_linear_expression = identity(obj)
@@ -361,8 +361,8 @@ class OptimizingLinearBoundBackwardTransform(
       self,
       graph: graph_traversal.PropagationGraph,
       inputs: Nest[graph_traversal.GraphInput],
-      env: Mapping[jax.core.Var, bound_propagation.LayerInput],
-      node_ref: jax.core.Var,
+      env: Mapping[jax._src.core.Var, bound_propagation.LayerInput],
+      node_ref: jax._src.core.Var,
       obj: Tensor,
   ) -> Tensor:
     # Analyse the relevant parts of the graph.
@@ -629,8 +629,8 @@ class JointOptimizationConcretizationAlgorithm(
           Index, linear_relaxations.ParameterizedNodeRelaxation]],
       graph: graph_traversal.PropagationGraph,
       inputs: Nest[graph_traversal.GraphInput],
-      env: Mapping[jax.core.Var, bound_propagation.LayerInput],
-      objective_nodes: Sequence[jax.core.Var]):
+      env: Mapping[jax._src.core.Var, bound_propagation.LayerInput],
+      objective_nodes: Sequence[jax._src.core.Var]):
     """Perform the joint optimization of all the bounds.
 
     For a network that is (index in parentheses):

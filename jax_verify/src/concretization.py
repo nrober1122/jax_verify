@@ -49,8 +49,8 @@ class BackwardConcretizingTransform(
       self,
       graph: graph_traversal.PropagationGraph,
       inputs: Nest[graph_traversal.GraphInput],
-      env: Mapping[jax.core.Var, bound_propagation.LayerInput],
-      node: jax.core.Var,
+      env: Mapping[jax._src.core.Var, bound_propagation.LayerInput],
+      node: jax._src.core.Var,
       obj: Tensor,
   ) -> Tensor:
     """Computes concrete bounds for a chunk of neurons in the given layer.
@@ -89,8 +89,8 @@ class BackwardConcretizer(metaclass=abc.ABCMeta):
       self,
       graph: graph_traversal.PropagationGraph,
       inputs: Nest[graph_traversal.GraphInput],
-      env: Mapping[jax.core.Var, bound_propagation.LayerInput],
-      node_ref: jax.core.Var,
+      env: Mapping[jax._src.core.Var, bound_propagation.LayerInput],
+      node_ref: jax._src.core.Var,
   ) -> jax_verify.IntervalBound:
     """Perform backward linear bound computation for the node `index`.
 
@@ -124,8 +124,8 @@ class ChunkedBackwardConcretizer(BackwardConcretizer):
       self,
       graph: graph_traversal.PropagationGraph,
       inputs: Nest[graph_traversal.GraphInput],
-      env: Mapping[jax.core.Var, bound_propagation.LayerInput],
-      node_ref: jax.core.Var,
+      env: Mapping[jax._src.core.Var, bound_propagation.LayerInput],
+      node_ref: jax._src.core.Var,
   ) -> jax_verify.IntervalBound:
     """Perform backward linear bound computation for the node `index`.
 
@@ -197,7 +197,7 @@ class BackwardConcretizingAlgorithm(
       inputs: Nest[graph_traversal.GraphInput],
   ) -> Tuple[
       Nest[bound_propagation.LayerInput],
-      Mapping[jax.core.Var, bound_propagation.LayerInput]]:
+      Mapping[jax._src.core.Var, bound_propagation.LayerInput]]:
     subgraph_decider = self._backward_concretizer.should_handle_as_subgraph
     graph_inspector = bound_utils.GraphInspector(subgraph_decider)
     inspector_algorithm = bound_propagation.ForwardPropagationAlgorithm(
@@ -264,7 +264,7 @@ class BackwardAlgorithmForwardConcretization(
       inputs: Nest[graph_traversal.GraphInput],
   ) -> Tuple[
       Nest[bound_propagation.LayerInput],
-      Mapping[jax.core.Var, bound_propagation.LayerInput]]:
+      Mapping[jax._src.core.Var, bound_propagation.LayerInput]]:
     # Perform the forward propagation so that all intermediate bounds are
     # concretized.
     _, env = self._forward_algorithm.propagate(graph, inputs)

@@ -26,13 +26,14 @@ import jax.numpy as jnp
 from jax_verify.src.types import Primitive, Tensor, TensorFun  # pylint: disable=g-multiple-import
 import numpy as np
 
-VarIsBoundDict = MutableMapping[jax.core.Var, bool]
+VarIsBoundDict = MutableMapping[jax._src.core.Var, bool]
 
 T = TypeVar('T')
 ListNest = Union[T, Sequence['ListNest[T]']]
 GraphSimplifier = ListNest[
-    Callable[[jax.core.Jaxpr, VarIsBoundDict], jax.core.Jaxpr]]
-SimpleSimplifier = Callable[[jax.core.Jaxpr], jax.core.Jaxpr]
+    Callable[[jax._src.core.Jaxpr, VarIsBoundDict], jax._src.core.Jaxpr]
+]
+SimpleSimplifier = Callable[[jax._src.core.Jaxpr], jax._src.core.Jaxpr]
 
 
 SUBGRAPH_PRIMITIVES: Sequence[Primitive] = (
@@ -43,17 +44,17 @@ SUBGRAPH_PRIMITIVES: Sequence[Primitive] = (
 )
 
 
-def jax_primitive_subgraph(primitive: Primitive, **params) -> jax.core.Jaxpr:
+def jax_primitive_subgraph(primitive: Primitive, **params) -> jax._src.core.Jaxpr:
   """Returns the sub-graph for the given equation."""
   if primitive == pjit.pjit_p:
     return params['jaxpr'].jaxpr
   elif primitive == jax.custom_derivatives.custom_jvp_call_jaxpr_p:
     return params['fun_jaxpr'].jaxpr
   elif primitive in SUBGRAPH_PRIMITIVES:
-    if isinstance(params['call_jaxpr'], jax.core.ClosedJaxpr):
+    if isinstance(params['call_jaxpr'], jax._src.core.ClosedJaxpr):
       return params['call_jaxpr'].jaxpr
     else:
-      assert isinstance(params['call_jaxpr'], jax.core.Jaxpr)
+      assert isinstance(params['call_jaxpr'], jax._src.core.Jaxpr)
       return params['call_jaxpr']
   else:
     return params['jax_verify_subgraph']
@@ -62,7 +63,7 @@ def jax_primitive_subgraph(primitive: Primitive, **params) -> jax.core.Jaxpr:
 def _replace_jax_primitive_subgraph(
     primitive: Primitive,
     params: MutableMapping[str, Any],
-    subgraph: jax.core.Jaxpr,
+    subgraph: jax._src.core.Jaxpr,
 ):
   """Updates the sub-graph for the given equation."""
   if primitive == jax.custom_derivatives.custom_jvp_call_jaxpr_p:
@@ -70,10 +71,10 @@ def _replace_jax_primitive_subgraph(
   elif primitive in SUBGRAPH_PRIMITIVES:
     if primitive == pjit.pjit_p:
       params['jaxpr'] = params['jaxpr'].replace(jaxpr=subgraph)
-    elif isinstance(params['call_jaxpr'], jax.core.ClosedJaxpr):
+    elif isinstance(params['call_jaxpr'], jax._src.core.ClosedJaxpr):
       params['call_jaxpr'] = params['call_jaxpr'].replace(jaxpr=subgraph)
     else:
-      assert isinstance(params['call_jaxpr'], jax.core.Jaxpr)
+      assert isinstance(params['call_jaxpr'], jax._src.core.Jaxpr)
       params['call_jaxpr'] = subgraph
   else:
     params['jax_verify_subgraph'] = subgraph
@@ -95,9 +96,9 @@ def make_jaxpr_nojit(fun, *inps, **kwargs):
 
 def simplify_graph(
     graph_simplifier: GraphSimplifier,
-    graph: jax.core.Jaxpr,
+    graph: jax._src.core.Jaxpr,
     var_is_bound: VarIsBoundDict,
-) -> jax.core.Jaxpr:
+) -> jax._src.core.Jaxpr:
   """Recursively apply the graph simplifier to the graph and its subgraphs.
 
   Starts by filling in var_is_bound with the results for all variables.
@@ -116,9 +117,9 @@ def simplify_graph(
 
 def _simplify_graph(
     var_is_bound: VarIsBoundDict,
-    graph: jax.core.Jaxpr,
+    graph: jax._src.core.Jaxpr,
     graph_simplifier: GraphSimplifier,
-) -> jax.core.Jaxpr:
+) -> jax._src.core.Jaxpr:
   """Recursively apply the graph simplifier to the graph and its subgraphs.
 
   Args:
@@ -230,7 +231,7 @@ class SyntheticPrimitiveSpec:
     self._params = params
 
   @property
-  def graph(self) -> jax.core.Jaxpr:
+  def graph(self) -> jax._src.core.Jaxpr:
     return self._graph
 
   @property
@@ -269,14 +270,14 @@ class SyntheticPrimitiveSpec:
 
 def _mark_outputs_whether_bounds(eqn, var_is_bound):
   non_literal_inps = [invar for invar in eqn.invars
-                      if not isinstance(invar, jax.core.Literal)]
+                      if not isinstance(invar, jax._src.core.Literal)]
   # If any of the input is a bound, the outputs are bounds too.
   outputs_are_bounds = any(var_is_bound[invar] for invar in non_literal_inps)
   for outvar in eqn.outvars:
     var_is_bound[outvar] = outputs_are_bounds
 
 
-def _propagate_var_is_bound(graph: jax.core.Jaxpr,
+def _propagate_var_is_bound(graph: jax._src.core.Jaxpr,
                             var_is_bound: VarIsBoundDict):
   """Fill in the var_is_bound dictionary to indicate which variables are bounds.
 
@@ -292,7 +293,7 @@ def _propagate_var_is_bound(graph: jax.core.Jaxpr,
       eqn_subgraph = jax_primitive_subgraph(eqn.primitive, **eqn.params)
       subgraph_var_is_bound = {}
       for subgraph_invar, eqn_invar in zip(eqn_subgraph.invars, eqn.invars):
-        if isinstance(eqn_invar, jax.core.Var):
+        if isinstance(eqn_invar, jax._src.core.Var):
           subgraph_var_is_bound[subgraph_invar] = var_is_bound[eqn_invar]
         else:
           subgraph_var_is_bound[subgraph_invar] = False
@@ -302,8 +303,8 @@ def _propagate_var_is_bound(graph: jax.core.Jaxpr,
 
 def detect(
     synthetic_primitive_specs: Sequence[SyntheticPrimitiveSpec],
-    graph: jax.core.Jaxpr,
-) -> jax.core.Jaxpr:
+    graph: jax._src.core.Jaxpr,
+) -> jax._src.core.Jaxpr:
   """Attempts to simplify the graph by identifying specific activations.
 
   This is done by recognizing part of the graph and fusing them into synthetic
@@ -322,14 +323,14 @@ def detect(
     eqn, eqn_idx = _next_equation(synthetic_primitive_specs, graph, eqn_idx)
     new_eqns.append(eqn)
 
-  return jax.core.Jaxpr(graph.constvars, graph.invars, graph.outvars, new_eqns)
+  return jax._src.core.Jaxpr(graph.constvars, graph.invars, graph.outvars, new_eqns)
 
 
 def _next_equation(
     synthetic_primitive_specs: Sequence[SyntheticPrimitiveSpec],
-    graph: jax.core.Jaxpr,
+    graph: jax._src.core.Jaxpr,
     eqn_idx: int,
-) -> tuple[jax.core.JaxprEqn, int]:
+) -> tuple[jax._src.core.JaxprEqn, int]:
   """Determines the next equation in the Jaxpr, possibly a substitution.
 
   Args:
@@ -347,17 +348,17 @@ def _next_equation(
         primitive_invars, primitive_outvars, captures
     ) = _matches(spec.graph, spec.capture_literals, graph, eqn_idx)
     if spec_matches:
-      sub_jaxpr = jax.core.Jaxpr(
+      sub_jaxpr = jax._src.core.Jaxpr(
           constvars=[], invars=primitive_invars, outvars=primitive_outvars,
           eqns=graph.eqns[eqn_idx:(eqn_idx + match_len)])
       # Replace deferred keyword params with captured literals.
       spec_params = {
           key: param(captures) if callable(param) else param
           for key, param in spec.params.items()}
-      return jax.core.new_jaxpr_eqn(
+      return jax._src.core.new_jaxpr_eqn(
           primitive_invars, primitive_outvars, spec.primitive,
           {'jax_verify_subgraph': sub_jaxpr, **spec_params},
-          jax.core.no_effects,
+          jax._src.core.no_effects,
           graph.eqns[eqn_idx].source_info), eqn_idx + match_len
 
   return graph.eqns[eqn_idx], eqn_idx + 1
@@ -374,15 +375,15 @@ def _equal_literal_values(lhs, rhs) -> bool:
 
 
 def _matches(
-    spec: jax.core.Jaxpr,
+    spec: jax._src.core.Jaxpr,
     capture_literals: Mapping[tuple[int, int], str],
-    graph: jax.core.Jaxpr,
+    graph: jax._src.core.Jaxpr,
     eqn_idx: int,
 ) -> tuple[
     bool,
     int,
-    Sequence[jax.core.Var],
-    Sequence[Union[jax.core.Var, jax.core.Literal]],
+    Sequence[jax._src.core.Var],
+    Sequence[Union[jax._src.core.Var, jax._src.core.Literal]],
     Mapping[str, Any],
 ]:
   """Determines whether the graph continues with the given reference graph.
@@ -413,8 +414,8 @@ def _matches(
       return False
     for invar_idx, (spec_eqn_invar, graph_eqn_invar) in enumerate(zip(
         spec_eqn_invars, graph_eqn_invars)):
-      if isinstance(spec_eqn_invar, jax.core.Literal):
-        if not isinstance(graph_eqn_invar, jax.core.Literal):
+      if isinstance(spec_eqn_invar, jax._src.core.Literal):
+        if not isinstance(graph_eqn_invar, jax._src.core.Literal):
           return False
         # Check that the literals hold values of the same type.
         if not isinstance(spec_eqn_invar.val, type(graph_eqn_invar.val)):
@@ -474,13 +475,13 @@ def _matches(
       graph_param = graph_eqn.params[key]
       if key in ('fun_jaxpr', 'call_jaxpr', 'jax_verify_subgraph', 'jaxpr'):
         # Recursively check that the sub-graphs match.
-        if isinstance(spec_param, jax.core.ClosedJaxpr):
-          assert isinstance(graph_param, jax.core.ClosedJaxpr)
+        if isinstance(spec_param, jax._src.core.ClosedJaxpr):
+          assert isinstance(graph_param, jax._src.core.ClosedJaxpr)
           subspec = spec_param.jaxpr
           subgraph = graph_param.jaxpr
         else:
-          assert isinstance(spec_param, jax.core.Jaxpr)
-          assert isinstance(graph_param, jax.core.Jaxpr)
+          assert isinstance(spec_param, jax._src.core.Jaxpr)
+          assert isinstance(graph_param, jax._src.core.Jaxpr)
           subspec = spec_param
           subgraph = graph_param
         (
@@ -522,15 +523,15 @@ def _matches(
   assert all(graph_invar is not None for graph_invar in graph_invars)
   graph_outvars = [
       graph_vars_by_spec_var[spec_outvar]
-      if isinstance(spec_outvar, jax.core.Var) else spec_outvar
+      if isinstance(spec_outvar, jax._src.core.Var) else spec_outvar
       for spec_outvar in spec.outvars]
   assert all(graph_outvar is not None for graph_outvar in graph_outvars)
   return True, eqn_idx - eqn_idx_orig, graph_invars, graph_outvars, captures
 
 
 def _differing_literal_indices(
-    graph: jax.core.Jaxpr,
-    alt_graph: jax.core.Jaxpr,
+    graph: jax._src.core.Jaxpr,
+    alt_graph: jax._src.core.Jaxpr,
 ) -> Sequence[tuple[int, int]]:
   """Returns indices of literals taking different values in the two graphs."""
   literals = []
@@ -543,10 +544,10 @@ def _differing_literal_indices(
                                                                alt_eqn.invars,
                                                                strict=True)):
       assert (
-          isinstance(eqn_invar, jax.core.Literal) ==
-          isinstance(alt_eqn_invar, jax.core.Literal)
+          isinstance(eqn_invar, jax._src.core.Literal) ==
+          isinstance(alt_eqn_invar, jax._src.core.Literal)
       ), 'Different literal occurrences'
-      if (isinstance(eqn_invar, jax.core.Literal) and
+      if (isinstance(eqn_invar, jax._src.core.Literal) and
           not _equal_literal_values(eqn_invar.val, alt_eqn_invar.val)):
         literals.append((eqn_idx, invar_idx))
 
@@ -557,15 +558,15 @@ def _differing_literal_indices(
       if key in ('fun_jaxpr', 'call_jaxpr', 'jax_verify_subgraph', 'jaxpr'):
         # Recursively match the sub-graphs.
         subgraph = param.jaxpr if isinstance(
-            param, jax.core.ClosedJaxpr) else param
+            param, jax._src.core.ClosedJaxpr) else param
         alt_subgraph = alt_param.jaxpr if isinstance(
-            alt_param, jax.core.ClosedJaxpr) else alt_param
+            alt_param, jax._src.core.ClosedJaxpr) else alt_param
         literals.extend(_differing_literal_indices(subgraph, alt_subgraph))
 
   return literals
 
 
-def _is_linear_eqn(eqn: jax.core.JaxprEqn, var_is_bound: VarIsBoundDict):
+def _is_linear_eqn(eqn: jax._src.core.JaxprEqn, var_is_bound: VarIsBoundDict):
   """Identify if an eqn is a linear transformation of inputs that are bounds.
 
   Args:
@@ -586,7 +587,7 @@ def _is_linear_eqn(eqn: jax.core.JaxprEqn, var_is_bound: VarIsBoundDict):
   # Otherwise, check simply the primitive
   prim = eqn.primitive
   non_literal_inps = [invar for invar in eqn.invars
-                      if not isinstance(invar, jax.core.Literal)]
+                      if not isinstance(invar, jax._src.core.Literal)]
   nb_bound_input = sum(var_is_bound[invar] for invar in non_literal_inps)
   if not any(var_is_bound[outvar] for outvar in eqn.outvars):
     return False
@@ -597,7 +598,7 @@ def _is_linear_eqn(eqn: jax.core.JaxprEqn, var_is_bound: VarIsBoundDict):
           or (prim in BILINEAR_OP and nb_bound_input == 1)
           or (prim is jax.lax.div_p
               and nb_bound_input == 1
-              and not isinstance(eqn.invars[0], jax.core.Literal)
+              and not isinstance(eqn.invars[0], jax._src.core.Literal)
               and var_is_bound[eqn.invars[0]]))
 
 
@@ -625,12 +626,12 @@ def _is_posbilinear_eqn(eqn, var_is_bound):
   # Otherwise, simply check the primitive
   prim = eqn.primitive
   non_literal_inps = [invar for invar in eqn.invars
-                      if not isinstance(invar, jax.core.Literal)]
+                      if not isinstance(invar, jax._src.core.Literal)]
   nb_bound_input = sum(var_is_bound[invar] for invar in non_literal_inps)
   return (prim in BILINEAR_OP) and (nb_bound_input == 2)
 
 
-def _find_eqn(eqn_list: Sequence[jax.core.JaxprEqn], var: jax.core.Var) -> int:
+def _find_eqn(eqn_list: Sequence[jax._src.core.JaxprEqn], var: jax._src.core.Var) -> int:
   """Find the equation producing the var, and returns its index."""
   eqn_idx = 0
   for eqn_idx, eqn in enumerate(eqn_list):
@@ -640,9 +641,9 @@ def _find_eqn(eqn_list: Sequence[jax.core.JaxprEqn], var: jax.core.Var) -> int:
     assert False
 
 
-def group_posbilinear(graph: jax.core.Jaxpr,
+def group_posbilinear(graph: jax._src.core.Jaxpr,
                       var_is_bound: VarIsBoundDict,
-                      ) -> jax.core.Jaxpr:
+                      ) -> jax._src.core.Jaxpr:
   """Simplifier identifying the PosBilinear terms in the graph.
 
   A PosBilinear equation can be written in the form of:
@@ -661,23 +662,23 @@ def group_posbilinear(graph: jax.core.Jaxpr,
     # Identify the posbilinear operations
     if _is_posbilinear_eqn(eqn, var_is_bound):
       non_literal_invars = [invar for invar in eqn.invars
-                            if isinstance(invar, jax.core.Var)]
-      posbilinear_jaxpr = jax.core.Jaxpr(
+                            if isinstance(invar, jax._src.core.Var)]
+      posbilinear_jaxpr = jax._src.core.Jaxpr(
           constvars=[], invars=non_literal_invars,
           outvars=eqn.outvars, eqns=[eqn])
-      new_eqns.append(jax.core.new_jaxpr_eqn(
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
           posbilinear_jaxpr.invars, posbilinear_jaxpr.outvars, posbilinear_p,
           {'jax_verify_subgraph': posbilinear_jaxpr,
-           'jax_verify_keepjvargs': True}, jax.core.no_effects))
+           'jax_verify_keepjvargs': True}, jax._src.core.no_effects))
     else:
       new_eqns.append(eqn)
 
-  return jax.core.Jaxpr(graph.constvars, graph.invars, graph.outvars, new_eqns)
+  return jax._src.core.Jaxpr(graph.constvars, graph.invars, graph.outvars, new_eqns)
 
 
-def group_linear_sequence(graph: jax.core.Jaxpr,
+def group_linear_sequence(graph: jax._src.core.Jaxpr,
                           var_is_bound: VarIsBoundDict,
-                          ) -> jax.core.Jaxpr:
+                          ) -> jax._src.core.Jaxpr:
   """Attempt to fold linear sequences together into synthetic linear primitives.
 
   Args:
@@ -696,13 +697,13 @@ def group_linear_sequence(graph: jax.core.Jaxpr,
     outvar = eqn.outvars[0]
     is_linear_result[outvar] = is_linear
     for invar in eqn.invars:
-      if not isinstance(invar, jax.core.Literal) and var_is_bound[invar]:
+      if not isinstance(invar, jax._src.core.Literal) and var_is_bound[invar]:
         consumed_by[invar] += 1
         if is_linear:
           consumed_by_linear.add(invar)
 
   for outvar in graph.outvars:
-    if isinstance(outvar, jax.core.Var):
+    if isinstance(outvar, jax._src.core.Var):
       consumed_by[outvar] += 1
 
   # Now collect the equations, merging the Linear sequences together
@@ -717,7 +718,7 @@ def group_linear_sequence(graph: jax.core.Jaxpr,
       lin_invars = []
       linear_eqns = []
       for invar in eqn.invars:
-        if isinstance(invar, jax.core.Var):
+        if isinstance(invar, jax._src.core.Var):
           # Filter out the literals, which should not be registered as inputs to
           # a subgraph.
           if invar in to_be_folded:
@@ -736,7 +737,7 @@ def group_linear_sequence(graph: jax.core.Jaxpr,
         linear_eqns.extend(eqn.params['jax_verify_subgraph'].eqns)
       else:
         linear_eqns.append(eqn)
-      sub_jaxpr = jax.core.Jaxpr(constvars=[], invars=lin_invars,
+      sub_jaxpr = jax._src.core.Jaxpr(constvars=[], invars=lin_invars,
                                  outvars=lin_outvars, eqns=linear_eqns)
 
       if (consumed_by[outvar] == 1) and (outvar in consumed_by_linear):
@@ -748,10 +749,10 @@ def group_linear_sequence(graph: jax.core.Jaxpr,
         # If it's consumed by multiple things, or by a non-linear operation, or
         # is a terminal output, it does not need folding and should be included
         # now.
-        agg_lin_eqn = jax.core.new_jaxpr_eqn(
+        agg_lin_eqn = jax._src.core.new_jaxpr_eqn(
             sub_jaxpr.invars, sub_jaxpr.outvars, linear_p,
             {'jax_verify_subgraph': sub_jaxpr, 'jax_verify_keepjvargs': True},
-            jax.core.no_effects)
+            jax._src.core.no_effects)
         new_eqns.append(agg_lin_eqn)
     else:
       # Non linear operation just gets included directly
@@ -759,7 +760,7 @@ def group_linear_sequence(graph: jax.core.Jaxpr,
 
   assert not to_be_folded
 
-  simple_graph = jax.core.Jaxpr(graph.constvars, graph.invars,
+  simple_graph = jax._src.core.Jaxpr(graph.constvars, graph.invars,
                                 graph.outvars, new_eqns)
   # There are some cases where this analysis misses combining some linear
   # operations that can be combined, because there is a branching factor that
@@ -786,9 +787,9 @@ def group_linear_sequence(graph: jax.core.Jaxpr,
     return simple_graph
 
 
-def group_fused_relu(graph: jax.core.Jaxpr,
+def group_fused_relu(graph: jax._src.core.Jaxpr,
                      var_is_bound: VarIsBoundDict
-                     ) -> jax.core.Jaxpr:
+                     ) -> jax._src.core.Jaxpr:
   """Simplifier identifying FusedRelus (Linear followed by a ReLU).
 
   The ReLU primitive will be replaced by a FusedRelu primitive, which
@@ -823,12 +824,12 @@ def group_fused_relu(graph: jax.core.Jaxpr,
   consumed_by = collections.Counter()
   for eqn in graph.eqns:
     for invar in eqn.invars:
-      if not isinstance(invar, jax.core.Literal) and var_is_bound[invar]:
+      if not isinstance(invar, jax._src.core.Literal) and var_is_bound[invar]:
         consumed_by[invar] += 1
     is_linear_variable[eqn.outvars[0]] = eqn.primitive is linear_p
   # Increase consumed_by for graph_input so that we don't fuse a graph output.
   for outvar in graph.outvars:
-    if isinstance(outvar, jax.core.Var):
+    if isinstance(outvar, jax._src.core.Var):
       consumed_by[outvar] += 1
 
   # Identify exactly which variables are involved in FusedRelus, based on the
@@ -853,9 +854,9 @@ def group_fused_relu(graph: jax.core.Jaxpr,
       relu_eqn = graph.eqns[relu_eqn_idx]
       # Let's now build the fused ReLU primitive
       non_literal_invars = [invar for invar in eqn.invars
-                            if isinstance(invar, jax.core.Var)]
+                            if isinstance(invar, jax._src.core.Var)]
       fused_relu_invars = [eqn.outvars[0], *non_literal_invars]
-      fused_relu_jaxpr = jax.core.Jaxpr(
+      fused_relu_jaxpr = jax._src.core.Jaxpr(
           constvars=[], invars=fused_relu_invars,
           outvars=relu_eqn.outvars, eqns=[relu_eqn])
       # Keep the linear eqn in the jaxpr, so that we can concretize it.
@@ -863,12 +864,12 @@ def group_fused_relu(graph: jax.core.Jaxpr,
       # Insert the relu at that level, with an addition of a copy of the
       # linear operation preceding it so that we can use it for the
       # relaxation.
-      new_eqns.append(jax.core.new_jaxpr_eqn(
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
           fused_relu_jaxpr.invars, fused_relu_jaxpr.outvars, fused_relu_p,
           {'jax_verify_subgraph': fused_relu_jaxpr,
            'jax_verify_keepjvargs': True,
            'jax_verify_fusedlinear': linear_eqn},
-          jax.core.no_effects))
+          jax._src.core.no_effects))
     elif (eqn.primitive is relu_p and
           eqn.invars[0] in fused_relu_interm_to_output):
       # This is the relu part of the fused relu. We already included it.
@@ -876,12 +877,12 @@ def group_fused_relu(graph: jax.core.Jaxpr,
     else:
       new_eqns.append(eqn)
 
-  return jax.core.Jaxpr(graph.constvars, graph.invars, graph.outvars, new_eqns)
+  return jax._src.core.Jaxpr(graph.constvars, graph.invars, graph.outvars, new_eqns)
 
 
-def hoist_constant_computations(graph: jax.core.Jaxpr,
+def hoist_constant_computations(graph: jax._src.core.Jaxpr,
                                 var_is_bound: VarIsBoundDict
-                                ) -> jax.core.Jaxpr:
+                                ) -> jax._src.core.Jaxpr:
   """Rearrange the equations to make for easier to reason about JaxPr.
 
   All constant computations should be done at the beginning.
@@ -900,11 +901,11 @@ def hoist_constant_computations(graph: jax.core.Jaxpr,
   for eqn in graph.eqns:
     if var_is_bound[eqn.outvars[0]]:
       new_eqns.append(eqn)
-  return jax.core.Jaxpr(graph.constvars, graph.invars,
+  return jax._src.core.Jaxpr(graph.constvars, graph.invars,
                         graph.outvars, new_eqns)
 
 
-def _get_count_and_suffix(graph: jax.core.Jaxpr) -> tuple[int, str]:
+def _get_count_and_suffix(graph: jax._src.core.Jaxpr) -> tuple[int, str]:
   # We are going to be creating new variables.
   # Let's find out what level we need to start counting from.
   max_count = 0
@@ -917,9 +918,9 @@ def _get_count_and_suffix(graph: jax.core.Jaxpr) -> tuple[int, str]:
   return max_count, suffix
 
 
-def expand_softmax_simplifier(graph: jax.core.Jaxpr,
+def expand_softmax_simplifier(graph: jax._src.core.Jaxpr,
                               var_is_bound: VarIsBoundDict
-                              ) -> jax.core.Jaxpr:
+                              ) -> jax._src.core.Jaxpr:
   """Replace the softmax synthetic primitives by its decomposition.
 
   It might seem like what we would want to do is simply not detect the softmax,
@@ -966,11 +967,11 @@ def expand_softmax_simplifier(graph: jax.core.Jaxpr,
       exp_index = find_prim(softmax_subgraph.eqns, lax.exp_p)
       full_size_aval = softmax_subgraph.eqns[exp_index].outvars[0].aval
 
-      exp_var = jax.core.Var(new_var_idx, suffix, full_size_aval)
+      exp_var = jax._src.core.Var(new_var_idx, suffix, full_size_aval)
       var_is_bound[exp_var] = True
       new_var_idx += 1
-      new_eqns.append(jax.core.new_jaxpr_eqn(
-          eqn.invars, [exp_var], lax.exp_p, {}, jax.core.no_effects))
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
+          eqn.invars, [exp_var], lax.exp_p, {}, jax._src.core.no_effects))
 
       # Let's find the parameters of the reduce_sum and of the broadcast
       # operation in the original softmax implementation so that we don't have
@@ -980,47 +981,47 @@ def expand_softmax_simplifier(graph: jax.core.Jaxpr,
       reduce_sum_index = find_prim(softmax_subgraph.eqns, lax.reduce_sum_p)
       orig_reduce_sum = softmax_subgraph.eqns[reduce_sum_index]
       reduced_size_aval = orig_reduce_sum.outvars[0].aval
-      exp_sum_var = jax.core.Var(new_var_idx, suffix, reduced_size_aval)
+      exp_sum_var = jax._src.core.Var(new_var_idx, suffix, reduced_size_aval)
       var_is_bound[exp_sum_var] = True
       new_var_idx += 1
-      new_eqns.append(jax.core.new_jaxpr_eqn(
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
           [exp_var], [exp_sum_var], lax.reduce_sum_p, orig_reduce_sum.params,
-          jax.core.no_effects))
+          jax._src.core.no_effects))
 
       # Add the broadcasting of it.
       broadcast_index = find_prim(softmax_subgraph.eqns, lax.broadcast_in_dim_p)
       orig_broadcast = softmax_subgraph.eqns[broadcast_index]
       broad_size_aval = orig_broadcast.outvars[0].aval
-      broad_expsum_var = jax.core.Var(new_var_idx, suffix, broad_size_aval)
+      broad_expsum_var = jax._src.core.Var(new_var_idx, suffix, broad_size_aval)
       var_is_bound[broad_expsum_var] = True
       new_var_idx += 1
-      new_eqns.append(jax.core.new_jaxpr_eqn(
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
           [exp_sum_var], [broad_expsum_var], lax.broadcast_in_dim_p,
-          orig_broadcast.params, jax.core.no_effects))
+          orig_broadcast.params, jax._src.core.no_effects))
 
       # Take the inverse of the exp sum
-      inv_expsum_var = jax.core.Var(new_var_idx, suffix, broad_size_aval)
+      inv_expsum_var = jax._src.core.Var(new_var_idx, suffix, broad_size_aval)
       var_is_bound[inv_expsum_var] = True
       new_var_idx += 1
-      new_eqns.append(jax.core.new_jaxpr_eqn(
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
           [broad_expsum_var], [inv_expsum_var], posreciprocal_p, {},
-          jax.core.no_effects))
+          jax._src.core.no_effects))
 
       # Multiply the exponential to the (inv exp sum)
       softmax_var = eqn.outvars[0]
-      new_eqns.append(jax.core.new_jaxpr_eqn(
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
           [exp_var, inv_expsum_var], [softmax_var], jax.lax.mul_p, {},
-          jax.core.no_effects))
+          jax._src.core.no_effects))
     else:
       new_eqns.append(eqn)
 
-  return jax.core.Jaxpr(graph.constvars, graph.invars,
+  return jax._src.core.Jaxpr(graph.constvars, graph.invars,
                         graph.outvars, new_eqns)
 
 
-def replace_eltwise_minimum(graph: jax.core.Jaxpr,
+def replace_eltwise_minimum(graph: jax._src.core.Jaxpr,
                             var_is_bound: VarIsBoundDict,
-                            ) -> jax.core.Jaxpr:
+                            ) -> jax._src.core.Jaxpr:
   """Replace the elementwise min primitive by an equivalent max formulation."""
   max_count, suffix = _get_count_and_suffix(graph)
   new_var_idx = max_count + 1
@@ -1029,40 +1030,40 @@ def replace_eltwise_minimum(graph: jax.core.Jaxpr,
   for eqn in graph.eqns:
     if (eqn.primitive == lax.min_p) and var_is_bound[eqn.outvars[0]]:
       # Create negation of the first argument.
-      neg_inp_0_var = jax.core.Var(new_var_idx, suffix, eqn.invars[0].aval)
+      neg_inp_0_var = jax._src.core.Var(new_var_idx, suffix, eqn.invars[0].aval)
       var_is_bound[neg_inp_0_var] = True
       new_var_idx += 1
-      new_eqns.append(jax.core.new_jaxpr_eqn(
-          eqn.invars[0:1], [neg_inp_0_var], lax.neg_p, {}, jax.core.no_effects))
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
+          eqn.invars[0:1], [neg_inp_0_var], lax.neg_p, {}, jax._src.core.no_effects))
 
       # Create negation of the second argument.
-      neg_inp_1_var = jax.core.Var(new_var_idx, suffix, eqn.invars[1].aval)
+      neg_inp_1_var = jax._src.core.Var(new_var_idx, suffix, eqn.invars[1].aval)
       var_is_bound[neg_inp_1_var] = True
       new_var_idx += 1
-      new_eqns.append(jax.core.new_jaxpr_eqn(
-          eqn.invars[1:2], [neg_inp_1_var], lax.neg_p, {}, jax.core.no_effects))
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
+          eqn.invars[1:2], [neg_inp_1_var], lax.neg_p, {}, jax._src.core.no_effects))
 
       # Create the elementwise maximum
-      neg_min = jax.core.Var(new_var_idx, suffix, eqn.outvars[0].aval)
+      neg_min = jax._src.core.Var(new_var_idx, suffix, eqn.outvars[0].aval)
       var_is_bound[neg_min] = True
       new_var_idx += 1
-      new_eqns.append(jax.core.new_jaxpr_eqn(
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
           [neg_inp_0_var, neg_inp_1_var], [neg_min], lax.max_p, {},
-          jax.core.no_effects))
+          jax._src.core.no_effects))
 
       # Negate to obtain the elementwise minimum
       elt_min_outvar = eqn.outvars[0]
-      new_eqns.append(jax.core.new_jaxpr_eqn(
-          [neg_min], [elt_min_outvar], lax.neg_p, {}, jax.core.no_effects))
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
+          [neg_min], [elt_min_outvar], lax.neg_p, {}, jax._src.core.no_effects))
     else:
       new_eqns.append(eqn)
 
-  return jax.core.Jaxpr(graph.constvars, graph.invars, graph.outvars, new_eqns)
+  return jax._src.core.Jaxpr(graph.constvars, graph.invars, graph.outvars, new_eqns)
 
 
-def replace_eltwise_maximum(graph: jax.core.Jaxpr,
+def replace_eltwise_maximum(graph: jax._src.core.Jaxpr,
                             var_is_bound: VarIsBoundDict,
-                            ) -> jax.core.Jaxpr:
+                            ) -> jax._src.core.Jaxpr:
   """Replace the elementwise max primitive by a ReLU and sum."""
   max_count, suffix = _get_count_and_suffix(graph)
   new_var_idx = max_count + 1
@@ -1071,37 +1072,37 @@ def replace_eltwise_maximum(graph: jax.core.Jaxpr,
   for eqn in graph.eqns:
     # If this in an elementwise maximum, that is not a ReLU
     if ((eqn.primitive == lax.max_p) and var_is_bound[eqn.outvars[0]] and
-        not (isinstance(eqn.invars[1], jax.core.Literal)
+        not (isinstance(eqn.invars[1], jax._src.core.Literal)
              and eqn.invars[1] == 0.)):
 
       # We know that this is a an elementwise maximum operation max(a, b).
       # We are going to rewrite it as b + ReLU(a - b)
 
       # Create the difference between the two arguments of the elementwise max.
-      diff_var = jax.core.Var(new_var_idx, suffix, eqn.invars[0].aval)
+      diff_var = jax._src.core.Var(new_var_idx, suffix, eqn.invars[0].aval)
       var_is_bound[diff_var] = True
       new_var_idx += 1
-      new_eqns.append(jax.core.new_jaxpr_eqn(
-          eqn.invars, [diff_var], lax.sub_p, {}, jax.core.no_effects))
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
+          eqn.invars, [diff_var], lax.sub_p, {}, jax._src.core.no_effects))
 
       # Create the ReLU of the difference
-      relued_diff_var = jax.core.Var(new_var_idx, suffix, eqn.outvars[0].aval)
+      relued_diff_var = jax._src.core.Var(new_var_idx, suffix, eqn.outvars[0].aval)
       var_is_bound[relued_diff_var] = True
       new_var_idx += 1
-      new_eqns.append(jax.core.new_jaxpr_eqn(
-          [diff_var], [relued_diff_var], relu_p, {}, jax.core.no_effects))
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
+          [diff_var], [relued_diff_var], relu_p, {}, jax._src.core.no_effects))
 
       # Add the second term back.
       max_outvar = eqn.outvars[0]
-      new_eqns.append(jax.core.new_jaxpr_eqn(
+      new_eqns.append(jax._src.core.new_jaxpr_eqn(
           [relued_diff_var, eqn.invars[1]], [max_outvar], lax.add_p, {},
-          jax.core.no_effects))
+          jax._src.core.no_effects))
     else:
       new_eqns.append(eqn)
-  return jax.core.Jaxpr(graph.constvars, graph.invars, graph.outvars, new_eqns)
+  return jax._src.core.Jaxpr(graph.constvars, graph.invars, graph.outvars, new_eqns)
 
 
-class FakePrimitive(jax.core.Primitive):
+class FakePrimitive(jax._src.core.Primitive):
   """This wraps an implementation of a primitive we want to identify.
 
   This way our code that assumes that it can go through the primitive by calling
@@ -1163,7 +1164,7 @@ def simplifier_composition(*graph_simplifiers: GraphSimplifier
 def _subgraph_bind(*args, **kwargs):
   """Implement the primitive by iterating through the subgraph."""
   jax_verify_subgraph = kwargs['jax_verify_subgraph']
-  return jax.core.eval_jaxpr(jax_verify_subgraph, [], *args)[0]
+  return jax._src.core.eval_jaxpr(jax_verify_subgraph, [], *args)[0]
 
 
 class SubgraphPrimitive(FakePrimitive):

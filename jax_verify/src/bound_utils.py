@@ -129,7 +129,7 @@ class BoundRetrieverAlgorithm(
       inputs: Nest[graph_traversal.GraphInput],
   ) -> Tuple[
       Nest[bound_propagation.Bound],
-      Mapping[jax.core.Var, bound_propagation.LayerInput],
+      Mapping[jax._src.core.Var, bound_propagation.LayerInput],
   ]:
     outvals, env = self._base_algorithm.propagate(graph, inputs)
     self._base_bounds = {
