@@ -914,7 +914,8 @@ def _get_count_and_suffix(graph: jax._src.core.Jaxpr) -> tuple[int, str]:
     for outvar in eqn.outvars:
       if outvar.count > max_count:
         max_count = outvar.count
-        suffix = outvar.suffix
+        # suffix = outvar.suffix
+        suffix = getattr(outvar, "suffix", "")
   return max_count, suffix
 
 

@@ -863,6 +863,36 @@ class ParameterizedPiecewiseLinearSubgradient(
   def project_params(self, relax_params: Nest[Tensor]) -> Nest[Tensor]:
     return jax.tree_map(lambda x: jnp.clip(x, 0., 1.), relax_params)
 
+# def reduce_window_max_relaxer(inp: bound_propagation.LayerInput, **params):
+#     """Naive but safe relaxation for reduce_window with max reducer."""
+#     reducer = params.get("computation", None)
+#     if reducer is not lax.max_p:
+#         raise ValueError(f"reduce_window with reducer {reducer} not supported.")
+
+#     lb = inp.lower
+#     ub = inp.upper
+#     wd = params["window_dimensions"]
+#     ws = params["window_strides"]
+#     pad = params["padding"]
+
+#     pooled_lb = lax.reduce_window(lb, -jnp.inf, lax.max, wd, ws, pad)
+#     pooled_ub = lax.reduce_window(ub, -jnp.inf, lax.max, wd, ws, pad)
+
+#     zero_w = jnp.zeros_like(pooled_lb)[None, ...]
+#     lower_aff = LinearExpression(zero_w, pooled_lb)
+#     upper_aff = LinearExpression(zero_w, pooled_ub)
+#     return lower_aff, upper_aff
+
+# # _crown_mapper = {
+# #     **{prim: functools.partial(midpoint_relaxer, prim, convex=activation.convex)
+# #        for prim, activation in activation_relaxation.relaxation_fns.items()},
+# #     lax.exp_p: _rvt_exp_relaxer,
+# #     synthetic_primitives.posbilinear_p: _rvt_posbilinear_relaxer,
+# #     lax.reduce_window_p: reduce_window_max_relaxer,  # <-- your new relaxer
+# # }
+
+# # crown_rvt_relaxer = OpwiseLinearBoundsRelaxer(_crown_mapper)
+
 
 _crown_mapper: Mapping[
     Primitive,
@@ -872,6 +902,7 @@ _crown_mapper: Mapping[
        for prim, activation in activation_relaxation.relaxation_fns.items()},
     lax.exp_p: _rvt_exp_relaxer,
     synthetic_primitives.posbilinear_p: _rvt_posbilinear_relaxer,
+    # lax.reduce_window_p: reduce_window_max_relaxer,
 }
 crown_rvt_relaxer = OpwiseLinearBoundsRelaxer(_crown_mapper)
 
